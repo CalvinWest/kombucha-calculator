@@ -36,18 +36,25 @@ export default function KombuchaCalculator() {
     // Base fermentation time at optimal conditions (24°C, 10% starter, 70g/L sugar)
     const baseTime = 7; // days
     
-    // Temperature factor (fermentation slows below 20°C and above 28°C)
-    const optimalTemp = 24;
-    let tempFactor;
-    if (temperature < 20) {
-      tempFactor = 1 + (20 - temperature) * 0.15; // Slows down significantly in cold
-    } else if (temperature > 28) {
-      tempFactor = 1 + (temperature - 28) * 0.1; // Slows down in excessive heat
-    } else {
-      // Optimal range: faster fermentation between 20-28°C
-      tempFactor = 1 - (Math.abs(temperature - optimalTemp) * 0.05);
-    }
+    // --- START OF CHANGE ---
+
+    // OLD MODEL (REMOVED)
+    // const optimalTemp = 24;
+    // let tempFactor;
+    // if (temperature < 20) {
+    //   tempFactor = 1 + (20 - temperature) * 0.15;
+    // } else if (temperature > 28) {
+    //   tempFactor = 1 + (temperature - 28) * 0.1;
+    // } else {
+    //   tempFactor = 1 - (Math.abs(temperature - optimalTemp) * 0.05);
+    // }
     
+    // NEW: Revised scientific model for temperature factor.
+    // Fermentation continuously accelerates with heat.
+    const tempFactor = Math.pow(24 / temperature, 1.8);
+
+    // --- END OF CHANGE ---
+
     // Starter percentage factor (more starter = faster fermentation)
     const starterFactor = Math.pow(10 / starterPercent, 0.4);
     
