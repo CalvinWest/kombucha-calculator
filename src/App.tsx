@@ -19,7 +19,9 @@ export default function KombuchaCalculator() {
   });
 
   const [timeElapsed, setTimeElapsed] = useState(0);
-  const [targetTime, setTargetTime] = useState(0);
+  // --- START OF CHANGE 1: REMOVE unused targetTime state ---
+  // const [targetTime, setTargetTime] = useState(0); // This line is removed
+  // --- END OF CHANGE 1 ---
   const [progress, setProgress] = useState(0);
   const [projectedDateTime, setProjectedDateTime] = useState('');
 
@@ -31,7 +33,6 @@ export default function KombuchaCalculator() {
   }, [temperature, starterPercent, sugarPerLiter, startDateTime]);
 
 
-  // Calculate time elapsed based on start date/time
   useEffect(() => {
     if (!startDateTime) {
       setTimeElapsed(0);
@@ -56,7 +57,6 @@ export default function KombuchaCalculator() {
     return () => clearInterval(interval);
   }, [startDateTime]);
 
-  // --- START OF CHANGE 1: Move date formatting to a helper function ---
   const formatProjectedDate = (date: Date) => {
     const dateString = date.toLocaleString([], {
       weekday: 'long',
@@ -76,7 +76,6 @@ export default function KombuchaCalculator() {
     
     return `${dateString} around ${timeOfDay}`;
   };
-  // --- END OF CHANGE 1 ---
 
   useEffect(() => {
     const baseTime = 7;
@@ -85,7 +84,10 @@ export default function KombuchaCalculator() {
     const sugarFactor = Math.pow(sugarPerLiter / 70, 0.3);
     
     const calculatedTarget = baseTime * tempFactor * starterFactor * sugarFactor;
-    setTargetTime(calculatedTarget);
+    
+    // --- START OF CHANGE 2: REMOVE unused state setter ---
+    // setTargetTime(calculatedTarget); // This line is removed
+    // --- END OF CHANGE 2 ---
     
     const calculatedProgress = startDateTime ? Math.min((timeElapsed / calculatedTarget) * 100, 100) : 0;
     setProgress(calculatedProgress);
@@ -94,9 +96,7 @@ export default function KombuchaCalculator() {
       const start = new Date(startDateTime);
       if (!isNaN(start.getTime())) {
         const finishDate = new Date(start.getTime() + calculatedTarget * 24 * 60 * 60 * 1000);
-        // --- START OF CHANGE 2: Use the new helper function ---
         setProjectedDateTime(formatProjectedDate(finishDate));
-        // --- END OF CHANGE 2 ---
       }
     } else {
       setProjectedDateTime('');
@@ -225,12 +225,10 @@ export default function KombuchaCalculator() {
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Fermentation Analysis</h2>
                 
                 <div className="space-y-4">
-                  {/* --- START OF CHANGE 3: Update the display and remove the duration --- */}
                   <div className="bg-white p-4 rounded-lg">
                     <p className="text-sm text-gray-600">Projected Date & Time</p>
                     <p className="text-2xl font-bold text-amber-700">{projectedDateTime}</p>
                   </div>
-                  {/* --- END OF CHANGE 3 --- */}
 
                   <div className="bg-white p-4 rounded-lg">
                     <div className="flex justify-between items-center mb-2">
