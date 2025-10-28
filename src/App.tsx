@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Droplet, Thermometer, Clock, TrendingUp, Calendar } from 'lucide-react';
 
 export default function KombuchaCalculator() {
-  // --- START OF CHANGE 1: Load initial state from localStorage ---
   const [temperature, setTemperature] = useState(() => {
     const saved = localStorage.getItem('kombuchaTemp');
     return saved ? Number(saved) : 22;
@@ -18,23 +17,18 @@ export default function KombuchaCalculator() {
   const [startDateTime, setStartDateTime] = useState(() => {
     return localStorage.getItem('kombuchaStartDate') || '';
   });
-  // --- END OF CHANGE 1 ---
 
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [targetTime, setTargetTime] = useState(0);
   const [progress, setProgress] = useState(0);
-  // --- START OF CHANGE 2: Add state for projected date ---
   const [projectedDateTime, setProjectedDateTime] = useState('');
-  // --- END OF CHANGE 2 ---
 
-  // --- START OF CHANGE 3: Save settings to localStorage on change ---
   useEffect(() => {
     localStorage.setItem('kombuchaTemp', String(temperature));
     localStorage.setItem('kombuchaStarter', String(starterPercent));
     localStorage.setItem('kombuchaSugar', String(sugarPerLiter));
     localStorage.setItem('kombuchaStartDate', startDateTime);
   }, [temperature, starterPercent, sugarPerLiter, startDateTime]);
-  // --- END OF CHANGE 3 ---
 
 
   // Calculate time elapsed based on start date/time
@@ -46,26 +40,46 @@ export default function KombuchaCalculator() {
 
     const calculateElapsed = () => {
       const start = new Date(startDateTime);
-      const now = new Date();
-      // Ensure we don't get an invalid date
       if (isNaN(start.getTime())) {
         setTimeElapsed(0);
         return;
       }
+      const now = new Date();
       const diffMs = now.getTime() - start.getTime();
       const diffDays = diffMs / (1000 * 60 * 60 * 24);
       setTimeElapsed(Math.max(0, diffDays));
     };
 
     calculateElapsed();
-    const interval = setInterval(calculateElapsed, 60000); // Update every minute
+    const interval = setInterval(calculateElapsed, 60000);
 
     return () => clearInterval(interval);
   }, [startDateTime]);
 
+  // --- START OF CHANGE 1: Move date formatting to a helper function ---
+  const formatProjectedDate = (date: Date) => {
+    const dateString = date.toLocaleString([], {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const hour = date.getHours();
+    let timeOfDay = 'evening';
+    if (hour >= 5 && hour < 12) {
+      timeOfDay = 'morning';
+    } else if (hour >= 12 && hour < 14) {
+      timeOfDay = 'noon';
+    } else if (hour >= 14 && hour < 18) {
+      timeOfDay = 'afternoon';
+    }
+    
+    return `${dateString} around ${timeOfDay}`;
+  };
+  // --- END OF CHANGE 1 ---
+
   useEffect(() => {
-    // Scientific model for kombucha fermentation
-    const baseTime = 7; // days
+    const baseTime = 7;
     const tempFactor = Math.pow(24 / temperature, 1.8);
     const starterFactor = Math.pow(10 / starterPercent, 0.4);
     const sugarFactor = Math.pow(sugarPerLiter / 70, 0.3);
@@ -76,23 +90,17 @@ export default function KombuchaCalculator() {
     const calculatedProgress = startDateTime ? Math.min((timeElapsed / calculatedTarget) * 100, 100) : 0;
     setProgress(calculatedProgress);
 
-    // --- START OF CHANGE 4: Calculate projected end date ---
     if (startDateTime) {
       const start = new Date(startDateTime);
       if (!isNaN(start.getTime())) {
         const finishDate = new Date(start.getTime() + calculatedTarget * 24 * 60 * 60 * 1000);
-        setProjectedDateTime(finishDate.toLocaleString([], {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }));
+        // --- START OF CHANGE 2: Use the new helper function ---
+        setProjectedDateTime(formatProjectedDate(finishDate));
+        // --- END OF CHANGE 2 ---
       }
     } else {
       setProjectedDateTime('');
     }
-    // --- END OF CHANGE 4 ---
 
   }, [temperature, starterPercent, sugarPerLiter, timeElapsed, startDateTime]);
 
@@ -217,14 +225,12 @@ export default function KombuchaCalculator() {
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Fermentation Analysis</h2>
                 
                 <div className="space-y-4">
-                  {/* --- START OF CHANGE 5: Update the results display --- */}
+                  {/* --- START OF CHANGE 3: Update the display and remove the duration --- */}
                   <div className="bg-white p-4 rounded-lg">
                     <p className="text-sm text-gray-600">Projected Date & Time</p>
                     <p className="text-2xl font-bold text-amber-700">{projectedDateTime}</p>
-                    <p className="text-sm text-gray-500 mt-1">(Projected duration: {targetTime.toFixed(1)} days)</p>
                   </div>
-                  {/* --- END OF CHANGE 5 --- */}
-
+                  {/* --- END OF CHANGE 3 --- */}
 
                   <div className="bg-white p-4 rounded-lg">
                     <div className="flex justify-between items-center mb-2">
