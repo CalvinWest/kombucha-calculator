@@ -1,4 +1,5 @@
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { Droplet, Thermometer, Clock, TrendingUp, Calendar } from 'lucide-react';
 
 // --- START OF CHANGE 2: New helper function for formatting the date ---
