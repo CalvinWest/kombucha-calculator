@@ -2,15 +2,38 @@ import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Droplet, Thermometer, Clock, TrendingUp, Calendar } from 'lucide-react';
 
-// Helper function for formatting the date
+// --- START OF CORRECTED CODE: Improved date formatting logic ---
 const formatProjectedDate = (finishDate: Date): ReactNode => {
   const now = new Date();
   
-  const daysUntil = (finishDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  const prefix = daysUntil < 7 ? "This" : "Next";
+  // To avoid issues around midnight, set hours/minutes/seconds to 0 for date comparisons
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  
+  const startOfFinishDate = new Date(finishDate);
+  startOfFinishDate.setHours(0, 0, 0, 0);
 
+  const daysUntil = (startOfFinishDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24);
+
+  // Part 1: Handle "Today", "Tomorrow" for clarity
+  if (daysUntil === 0) {
+     return <>Later today</>;
+  }
+  if (daysUntil === 1) {
+     return <>Tomorrow</>;
+  }
+
+  // Part 2: Determine "This" or "Next" based on the calendar week
+  const finishDayOfWeek = finishDate.getDay(); // Sunday = 0, Saturday = 6
+  const todayDayOfWeek = now.getDay();
+  
+  // If the finish day is later in the *current* calendar week, it's "This". Otherwise, it's "Next".
+  const prefix = (finishDayOfWeek >= todayDayOfWeek && daysUntil < 7) ? "This" : "Next";
+
+  // Part 3: "Weekday"
   const weekday = finishDate.toLocaleDateString('en-US', { weekday: 'long' });
 
+  // Part 4: "morning/noon/afternoon/evening"
   const hour = finishDate.getHours();
   let timeOfDay;
   if (hour >= 5 && hour < 12) {
@@ -30,6 +53,7 @@ const formatProjectedDate = (finishDate: Date): ReactNode => {
     </>
   );
 };
+// --- END OF CORRECTED CODE ---
 
 export default function KombuchaCalculator() {
   const [temperature, setTemperature] = useState(() => {
@@ -82,24 +106,13 @@ export default function KombuchaCalculator() {
     return () => clearInterval(interval);
   }, [startDateTime]);
 
-  // --- START OF UPDATED CALCULATION LOGIC ---
   useEffect(() => {
-    // 1. Change the base unit from days to hours for better precision
-    const baseTimeInHours = 168; // 7 days * 24 hours
-
-    // Factors remain the same as they are unitless ratios
+    const baseTime = 7; // days
     const tempFactor = Math.pow(24 / temperature, 1.8);
     const starterFactor = Math.pow(10 / starterPercent, 0.4);
     const sugarFactor = Math.pow(sugarPerLiter / 70, 0.3);
     
-    // 2. Calculate the target time in hours (will be a float, e.g., 172.8 hours)
-    const targetTimeInHours = baseTimeInHours * tempFactor * starterFactor * sugarFactor;
-    
-    // 3. Round the result to the nearest whole hour. This is the key change to prevent "tipping point" issues.
-    const roundedTargetHours = Math.round(targetTimeInHours);
-
-    // For the progress bar, we use the rounded target time converted back to days
-    const targetTimeInDays = roundedTargetHours / 24;
+    const targetTimeInDays = baseTime * tempFactor * starterFactor * sugarFactor;
     
     const calculatedProgress = startDateTime ? Math.min((timeElapsed / targetTimeInDays) * 100, 100) : 0;
     setProgress(calculatedProgress);
@@ -107,8 +120,7 @@ export default function KombuchaCalculator() {
     if (startDateTime) {
       const start = new Date(startDateTime);
       if (!isNaN(start.getTime())) {
-        // 4. Add the rounded hours (converted to milliseconds) to the start time
-        const finishDate = new Date(start.getTime() + roundedTargetHours * 60 * 60 * 1000);
+        const finishDate = new Date(start.getTime() + targetTimeInDays * 24 * 60 * 60 * 1000);
         setProjectedFinishDisplay(formatProjectedDate(finishDate));
       }
     } else {
@@ -116,7 +128,6 @@ export default function KombuchaCalculator() {
     }
 
   }, [temperature, starterPercent, sugarPerLiter, timeElapsed, startDateTime]);
-  // --- END OF UPDATED CALCULATION LOGIC ---
 
   const getProgressColor = () => {
     if (progress < 50) return 'bg-blue-500';
@@ -159,7 +170,6 @@ export default function KombuchaCalculator() {
                 type="datetime-local"
                 value={startDateTime}
                 onChange={(e) => setStartDateTime(e.target.value)}
-                step="3600" // --- CHANGE: Restricts selection to the top of the hour ---
                 className="w-full px-4 py-2 border-2 border-indigo-200 rounded-lg focus:outline-none focus:border-indigo-500"
               />
               {startDateTime && (
