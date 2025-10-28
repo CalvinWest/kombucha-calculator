@@ -2,13 +2,40 @@ import { useState, useEffect } from 'react';
 import { Droplet, Thermometer, Clock, TrendingUp, Calendar } from 'lucide-react';
 
 export default function KombuchaCalculator() {
-  const [temperature, setTemperature] = useState(22);
-  const [starterPercent, setStarterPercent] = useState(10);
-  const [sugarPerLiter, setSugarPerLiter] = useState(70);
-  const [startDateTime, setStartDateTime] = useState('');
+  // --- START OF CHANGE 1: Load initial state from localStorage ---
+  const [temperature, setTemperature] = useState(() => {
+    const saved = localStorage.getItem('kombuchaTemp');
+    return saved ? Number(saved) : 22;
+  });
+  const [starterPercent, setStarterPercent] = useState(() => {
+    const saved = localStorage.getItem('kombuchaStarter');
+    return saved ? Number(saved) : 10;
+  });
+  const [sugarPerLiter, setSugarPerLiter] = useState(() => {
+    const saved = localStorage.getItem('kombuchaSugar');
+    return saved ? Number(saved) : 70;
+  });
+  const [startDateTime, setStartDateTime] = useState(() => {
+    return localStorage.getItem('kombuchaStartDate') || '';
+  });
+  // --- END OF CHANGE 1 ---
+
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [targetTime, setTargetTime] = useState(0);
   const [progress, setProgress] = useState(0);
+  // --- START OF CHANGE 2: Add state for projected date ---
+  const [projectedDateTime, setProjectedDateTime] = useState('');
+  // --- END OF CHANGE 2 ---
+
+  // --- START OF CHANGE 3: Save settings to localStorage on change ---
+  useEffect(() => {
+    localStorage.setItem('kombuchaTemp', String(temperature));
+    localStorage.setItem('kombuchaStarter', String(starterPercent));
+    localStorage.setItem('kombuchaSugar', String(sugarPerLiter));
+    localStorage.setItem('kombuchaStartDate', startDateTime);
+  }, [temperature, starterPercent, sugarPerLiter, startDateTime]);
+  // --- END OF CHANGE 3 ---
+
 
   // Calculate time elapsed based on start date/time
   useEffect(() => {
@@ -20,7 +47,12 @@ export default function KombuchaCalculator() {
     const calculateElapsed = () => {
       const start = new Date(startDateTime);
       const now = new Date();
-      const diffMs = now.getTime() - start.getTime();;
+      // Ensure we don't get an invalid date
+      if (isNaN(start.getTime())) {
+        setTimeElapsed(0);
+        return;
+      }
+      const diffMs = now.getTime() - start.getTime();
       const diffDays = diffMs / (1000 * 60 * 60 * 24);
       setTimeElapsed(Math.max(0, diffDays));
     };
@@ -33,41 +65,35 @@ export default function KombuchaCalculator() {
 
   useEffect(() => {
     // Scientific model for kombucha fermentation
-    // Base fermentation time at optimal conditions (24°C, 10% starter, 70g/L sugar)
     const baseTime = 7; // days
-    
-    // --- START OF CHANGE ---
-
-    // OLD MODEL (REMOVED)
-    // const optimalTemp = 24;
-    // let tempFactor;
-    // if (temperature < 20) {
-    //   tempFactor = 1 + (20 - temperature) * 0.15;
-    // } else if (temperature > 28) {
-    //   tempFactor = 1 + (temperature - 28) * 0.1;
-    // } else {
-    //   tempFactor = 1 - (Math.abs(temperature - optimalTemp) * 0.05);
-    // }
-    
-    // NEW: Revised scientific model for temperature factor.
-    // Fermentation continuously accelerates with heat.
     const tempFactor = Math.pow(24 / temperature, 1.8);
-
-    // --- END OF CHANGE ---
-
-    // Starter percentage factor (more starter = faster fermentation)
     const starterFactor = Math.pow(10 / starterPercent, 0.4);
-    
-    // Sugar concentration factor (more sugar = longer fermentation)
     const sugarFactor = Math.pow(sugarPerLiter / 70, 0.3);
     
-    // Calculate target time
     const calculatedTarget = baseTime * tempFactor * starterFactor * sugarFactor;
     setTargetTime(calculatedTarget);
     
-    // Calculate progress percentage
     const calculatedProgress = startDateTime ? Math.min((timeElapsed / calculatedTarget) * 100, 100) : 0;
     setProgress(calculatedProgress);
+
+    // --- START OF CHANGE 4: Calculate projected end date ---
+    if (startDateTime) {
+      const start = new Date(startDateTime);
+      if (!isNaN(start.getTime())) {
+        const finishDate = new Date(start.getTime() + calculatedTarget * 24 * 60 * 60 * 1000);
+        setProjectedDateTime(finishDate.toLocaleString([], {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
+      }
+    } else {
+      setProjectedDateTime('');
+    }
+    // --- END OF CHANGE 4 ---
+
   }, [temperature, starterPercent, sugarPerLiter, timeElapsed, startDateTime]);
 
   const getProgressColor = () => {
@@ -191,10 +217,14 @@ export default function KombuchaCalculator() {
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Fermentation Analysis</h2>
                 
                 <div className="space-y-4">
+                  {/* --- START OF CHANGE 5: Update the results display --- */}
                   <div className="bg-white p-4 rounded-lg">
-                    <p className="text-sm text-gray-600">Target Fermentation Time</p>
-                    <p className="text-2xl font-bold text-amber-700">{targetTime.toFixed(1)} days</p>
+                    <p className="text-sm text-gray-600">Projected Date & Time</p>
+                    <p className="text-2xl font-bold text-amber-700">{projectedDateTime}</p>
+                    <p className="text-sm text-gray-500 mt-1">(Projected duration: {targetTime.toFixed(1)} days)</p>
                   </div>
+                  {/* --- END OF CHANGE 5 --- */}
+
 
                   <div className="bg-white p-4 rounded-lg">
                     <div className="flex justify-between items-center mb-2">
