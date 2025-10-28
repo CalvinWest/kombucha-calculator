@@ -1,5 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { Droplet, Thermometer, Clock, TrendingUp, Calendar } from 'lucide-react';
+
+// --- START OF CHANGE 2: New helper function for formatting the date ---
+const formatProjectedDate = (finishDate: Date): ReactNode => {
+  const now = new Date();
+  
+  // Part 1: "This" or "Next"
+  const daysUntil = (finishDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+  const prefix = daysUntil < 7 ? "This" : "Next";
+
+  // Part 2: "Weekday"
+  const weekday = finishDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+  // Part 3: "morning/noon/afternoon/evening"
+  const hour = finishDate.getHours();
+  let timeOfDay;
+  if (hour >= 5 && hour < 12) {
+    timeOfDay = 'morning';
+  } else if (hour >= 12 && hour < 14) {
+    timeOfDay = 'noon';
+  } else if (hour >= 14 && hour < 18) {
+    timeOfDay = 'afternoon';
+  } else {
+    timeOfDay = 'evening';
+  }
+
+  return (
+    <>
+      <span className="text-gray-500">{prefix}</span> {weekday}
+      <span className="text-gray-500">, around</span> {timeOfDay}
+    </>
+  );
+};
+// --- END OF CHANGE 2 ---
 
 export default function KombuchaCalculator() {
   const [temperature, setTemperature] = useState(() => {
@@ -19,11 +52,14 @@ export default function KombuchaCalculator() {
   });
 
   const [timeElapsed, setTimeElapsed] = useState(0);
-  // --- START OF CHANGE 1: REMOVE unused targetTime state ---
-  // const [targetTime, setTargetTime] = useState(0); // This line is removed
+  // --- START OF CHANGE 1: Remove targetTime state ---
+  // const [targetTime, setTargetTime] = useState(0); // This is no longer needed
   // --- END OF CHANGE 1 ---
   const [progress, setProgress] = useState(0);
-  const [projectedDateTime, setProjectedDateTime] = useState('');
+  // --- START OF CHANGE 3: Update state to hold the JSX display ---
+  const [projectedFinishDisplay, setProjectedFinishDisplay] = useState<ReactNode | null>(null);
+  // --- END OF CHANGE 3 ---
+
 
   useEffect(() => {
     localStorage.setItem('kombuchaTemp', String(temperature));
@@ -38,7 +74,6 @@ export default function KombuchaCalculator() {
       setTimeElapsed(0);
       return;
     }
-
     const calculateElapsed = () => {
       const start = new Date(startDateTime);
       if (isNaN(start.getTime())) {
@@ -50,57 +85,34 @@ export default function KombuchaCalculator() {
       const diffDays = diffMs / (1000 * 60 * 60 * 24);
       setTimeElapsed(Math.max(0, diffDays));
     };
-
     calculateElapsed();
     const interval = setInterval(calculateElapsed, 60000);
-
     return () => clearInterval(interval);
   }, [startDateTime]);
 
-  const formatProjectedDate = (date: Date) => {
-    const dateString = date.toLocaleString([], {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    });
-
-    const hour = date.getHours();
-    let timeOfDay = 'evening';
-    if (hour >= 5 && hour < 12) {
-      timeOfDay = 'morning';
-    } else if (hour >= 12 && hour < 14) {
-      timeOfDay = 'noon';
-    } else if (hour >= 14 && hour < 18) {
-      timeOfDay = 'afternoon';
-    }
-    
-    return `${dateString} around ${timeOfDay}`;
-  };
-
   useEffect(() => {
-    const baseTime = 7;
+    const baseTime = 7; // days
     const tempFactor = Math.pow(24 / temperature, 1.8);
     const starterFactor = Math.pow(10 / starterPercent, 0.4);
     const sugarFactor = Math.pow(sugarPerLiter / 70, 0.3);
     
-    const calculatedTarget = baseTime * tempFactor * starterFactor * sugarFactor;
+    // Use a local constant instead of state for the target time
+    const targetTimeInDays = baseTime * tempFactor * starterFactor * sugarFactor;
     
-    // --- START OF CHANGE 2: REMOVE unused state setter ---
-    // setTargetTime(calculatedTarget); // This line is removed
-    // --- END OF CHANGE 2 ---
-    
-    const calculatedProgress = startDateTime ? Math.min((timeElapsed / calculatedTarget) * 100, 100) : 0;
+    const calculatedProgress = startDateTime ? Math.min((timeElapsed / targetTimeInDays) * 100, 100) : 0;
     setProgress(calculatedProgress);
 
+    // --- START OF CHANGE 4: Use the new formatter ---
     if (startDateTime) {
       const start = new Date(startDateTime);
       if (!isNaN(start.getTime())) {
-        const finishDate = new Date(start.getTime() + calculatedTarget * 24 * 60 * 60 * 1000);
-        setProjectedDateTime(formatProjectedDate(finishDate));
+        const finishDate = new Date(start.getTime() + targetTimeInDays * 24 * 60 * 60 * 1000);
+        setProjectedFinishDisplay(formatProjectedDate(finishDate));
       }
     } else {
-      setProjectedDateTime('');
+      setProjectedFinishDisplay(null);
     }
+    // --- END OF CHANGE 4 ---
 
   }, [temperature, starterPercent, sugarPerLiter, timeElapsed, startDateTime]);
 
@@ -225,10 +237,12 @@ export default function KombuchaCalculator() {
                 <h2 className="text-xl font-bold text-gray-800 mb-4">Fermentation Analysis</h2>
                 
                 <div className="space-y-4">
+                  {/* --- START OF CHANGE 5: Render the new projected finish display --- */}
                   <div className="bg-white p-4 rounded-lg">
                     <p className="text-sm text-gray-600">Projected Date & Time</p>
-                    <p className="text-2xl font-bold text-amber-700">{projectedDateTime}</p>
+                    <p className="text-2xl font-bold text-amber-700">{projectedFinishDisplay}</p>
                   </div>
+                  {/* --- END OF CHANGE 5 --- */}
 
                   <div className="bg-white p-4 rounded-lg">
                     <div className="flex justify-between items-center mb-2">
