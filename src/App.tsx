@@ -1,30 +1,132 @@
 import { useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
-import { Droplet, Thermometer, Clock, TrendingUp, Calendar } from 'lucide-react';
+import type { ReactNode, ChangeEvent } from 'react';
+import { Droplet, Thermometer, Clock, TrendingUp, Calendar, FlaskConical } from 'lucide-react';
 
-// --- START OF CHANGE 2: New helper function for formatting the date ---
+// ============================================================
+// STAGE SYSTEM
+// ============================================================
+
+type Stage = {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  description: string;
+  textColor: string;
+  bgColor: string;
+  borderColor: string;
+};
+
+const STAGES: Stage[] = [
+  {
+    key: 'sweet_tea',
+    label: 'Sweet Tea',
+    min: 0,
+    max: 0.25,
+    description: 'Barely fermented. Still tastes mostly like sweetened tea.',
+    textColor: 'text-yellow-800',
+    bgColor: 'bg-yellow-50',
+    borderColor: 'border-yellow-400',
+  },
+  {
+    key: 'awakening',
+    label: 'Awakening',
+    min: 0.25,
+    max: 0.6,
+    description: 'Fermentation is active. A slight tang is emerging, but still quite sweet.',
+    textColor: 'text-amber-800',
+    bgColor: 'bg-amber-50',
+    borderColor: 'border-amber-400',
+  },
+  {
+    key: 'balanced',
+    label: 'Balanced',
+    min: 0.6,
+    max: 1.1,
+    description: 'The classic kombucha profile. Sweet-tart equilibrium.',
+    textColor: 'text-orange-800',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-500',
+  },
+  {
+    key: 'tart',
+    label: 'Tart',
+    min: 1.1,
+    max: 1.6,
+    description: 'Acidity is dominant, sugar receding. Dry and assertive.',
+    textColor: 'text-red-800',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-500',
+  },
+  {
+    key: 'vinegary',
+    label: 'Vinegary',
+    min: 1.6,
+    max: 2.5,
+    description: 'Sharp and acetic. Drinkable but assertive.',
+    textColor: 'text-rose-900',
+    bgColor: 'bg-rose-50',
+    borderColor: 'border-rose-600',
+  },
+  {
+    key: 'spent',
+    label: 'Spent',
+    min: 2.5,
+    max: Infinity,
+    description: 'Over-acidified and flat-tasting. The SCOBY may be stressed.',
+    textColor: 'text-stone-800',
+    bgColor: 'bg-stone-100',
+    borderColor: 'border-stone-600',
+  },
+];
+
+const getStage = (score: number): Stage => {
+  return STAGES.find(s => score >= s.min && score < s.max) ?? STAGES[STAGES.length - 1];
+};
+
+const VISUAL_MAX_SCORE = 3.0;
+
+// ============================================================
+// DATE FORMATTING (improved version from the other branch)
+// ============================================================
+
 const formatProjectedDate = (finishDate: Date): ReactNode => {
   const now = new Date();
-  
-  // Part 1: "This" or "Next"
-  const daysUntil = (finishDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  const prefix = daysUntil < 7 ? "This" : "Next";
 
-  // Part 2: "Weekday"
-  const weekday = finishDate.toLocaleDateString('en-US', { weekday: 'long' });
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
 
-  // Part 3: "morning/noon/afternoon/evening"
-  const hour = finishDate.getHours();
-  let timeOfDay;
-  if (hour >= 5 && hour < 12) {
-    timeOfDay = 'morning';
-  } else if (hour >= 12 && hour < 14) {
-    timeOfDay = 'noon';
-  } else if (hour >= 14 && hour < 18) {
-    timeOfDay = 'afternoon';
-  } else {
-    timeOfDay = 'evening';
+  const startOfFinishDate = new Date(finishDate);
+  startOfFinishDate.setHours(0, 0, 0, 0);
+
+  const daysUntil =
+    (startOfFinishDate.getTime() - startOfToday.getTime()) /
+    (1000 * 60 * 60 * 24);
+
+  // If the finish date is far in the future, show the full date
+  if (daysUntil > 12) {
+    return finishDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
   }
+
+  // Past dates
+  if (daysUntil < 0) {
+    return <span className="text-gray-500">already passed</span>;
+  }
+
+  // Today & Tomorrow
+  if (daysUntil === 0) return <>Later today</>;
+  if (daysUntil === 1) return <>Tomorrow</>;
+
+  // "This" vs "Next" for dates within ~12 days
+  const finishDayOfWeek = finishDate.getDay();
+  const todayDayOfWeek = now.getDay();
+  const prefix =
+    finishDayOfWeek >= todayDayOfWeek && daysUntil < 7 ? 'This' : 'Next';
+  const weekday = finishDate.toLocaleDateString('en-US', { weekday: 'long' });
 
   return (
     <>
@@ -32,7 +134,10 @@ const formatProjectedDate = (finishDate: Date): ReactNode => {
     </>
   );
 };
-// --- END OF CHANGE 2 ---
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 
 export default function KombuchaCalculator() {
   const [temperature, setTemperature] = useState(() => {
@@ -56,24 +161,21 @@ export default function KombuchaCalculator() {
   });
 
   const [timeElapsed, setTimeElapsed] = useState(0);
-  // --- START OF CHANGE 1: Remove targetTime state ---
-  // const [targetTime, setTargetTime] = useState(0); // This is no longer needed
-  // --- END OF CHANGE 1 ---
-  const [progress, setProgress] = useState(0);
-  // --- START OF CHANGE 3: Update state to hold the JSX display ---
-  const [projectedFinishDisplay, setProjectedFinishDisplay] = useState<ReactNode | null>(null);
-  // --- END OF CHANGE 3 ---
+  const [fermentationScore, setFermentationScore] = useState(0);
+  const [stageProjections, setStageProjections] = useState<
+    { stage: Stage; date: Date }[]
+  >([]);
 
-
+  // Persist inputs
   useEffect(() => {
     localStorage.setItem('kombuchaTemp', String(temperature));
     localStorage.setItem('kombuchaSweetTeaVolume', String(sweetTeaVolume));
     localStorage.setItem('kombuchaStarterVolume', String(starterVolume));
     localStorage.setItem('kombuchaSugarGrams', String(sugarGrams));
     localStorage.setItem('kombuchaStartDate', startDateTime);
-  }, [temperature, starterPercent, sugarPerLiter, startDateTime]);
+  }, [temperature, sweetTeaVolume, starterVolume, sugarGrams, startDateTime]);
 
-
+  // Track elapsed time
   useEffect(() => {
     if (!startDateTime) {
       setTimeElapsed(0);
@@ -109,14 +211,14 @@ export default function KombuchaCalculator() {
     const referenceTime = 8;
 
     const tempFactor = Math.pow(24 / temperature, 1.8);
-    const starterFactor = Math.pow(10 / starterPercent, 0.4);
-    const sugarFactor = Math.pow(sugarPerLiter / 70, 0.3);
-    
-    // Use a local constant instead of state for the target time
-    const targetTimeInDays = baseTime * tempFactor * starterFactor * sugarFactor;
-    
-    const calculatedProgress = startDateTime ? Math.min((timeElapsed / targetTimeInDays) * 100, 100) : 0;
-    setProgress(calculatedProgress);
+    const starterFactor = Math.pow(10 / Math.max(starterPercent, 0.1), 0.4);
+    const sugarFactor = Math.pow(Math.max(sugarPerLiter, 0.1) / 70, 0.3);
+
+    const adjustedReferenceTime =
+      referenceTime * tempFactor * starterFactor * sugarFactor;
+
+    const score = startDateTime ? timeElapsed / adjustedReferenceTime : 0;
+    setFermentationScore(score);
 
     if (startDateTime) {
       const start = new Date(startDateTime);
@@ -135,18 +237,44 @@ export default function KombuchaCalculator() {
     } else {
       setStageProjections([]);
     }
-    // --- END OF CHANGE 4 ---
-
-  }, [temperature, starterPercent, sugarPerLiter, timeElapsed, startDateTime]);
-
-  const getProgressColor = () => {
-    if (progress < 50) return 'bg-blue-500';
-    if (progress < 80) return 'bg-yellow-500';
-    if (progress < 100) return 'bg-orange-500';
-    return 'bg-green-500';
-  };
+  }, [
+    temperature,
+    sweetTeaVolume,
+    starterVolume,
+    sugarGrams,
+    timeElapsed,
+    startDateTime,
+  ]);
 
   const currentStage = getStage(fermentationScore);
+
+  // ---- Date + Hour split inputs (from the other branch) ----
+  const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value;
+    if (!newDate) {
+      setStartDateTime('');
+      return;
+    }
+    const currentHour = startDateTime
+      ? new Date(startDateTime).getHours()
+      : new Date().getHours();
+    const newDateTime = new Date(newDate);
+    newDateTime.setHours(currentHour);
+    setStartDateTime(newDateTime.toISOString());
+  };
+
+  const handleHourChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const newHour = Number(e.target.value);
+    if (!startDateTime) return;
+    const newDateTime = new Date(startDateTime);
+    newDateTime.setHours(newHour);
+    setStartDateTime(newDateTime.toISOString());
+  };
+
+  const startDateValue = startDateTime ? startDateTime.split('T')[0] : '';
+  const startHourValue = startDateTime
+    ? new Date(startDateTime).getHours()
+    : -1;
 
   const formatTimeElapsed = () => {
     const days = Math.floor(timeElapsed);
@@ -181,7 +309,9 @@ export default function KombuchaCalculator() {
               Kombucha Fermentation Tracker
             </h1>
           </div>
+
           <div className="space-y-6">
+            {/* Start Date & Hour */}
             <div className="bg-indigo-50 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Calendar className="w-5 h-5 text-indigo-700" />
@@ -189,8 +319,6 @@ export default function KombuchaCalculator() {
                   Start Date & Time
                 </label>
               </div>
-              
-              {/* --- START OF MODIFIED CODE 3: New Date and Hour Inputs --- */}
               <div className="flex gap-4">
                 <input
                   type="date"
@@ -204,7 +332,9 @@ export default function KombuchaCalculator() {
                   disabled={!startDateTime}
                   className="w-1/3 px-4 py-2 border-2 border-indigo-200 rounded-lg focus:outline-none focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
-                  <option value="-1" disabled>Hour</option>
+                  <option value="-1" disabled>
+                    Hour
+                  </option>
                   {Array.from({ length: 24 }, (_, i) => (
                     <option key={i} value={i}>
                       {String(i).padStart(2, '0')}:00
@@ -212,8 +342,6 @@ export default function KombuchaCalculator() {
                   ))}
                 </select>
               </div>
-              {/* --- END OF MODIFIED CODE 3 --- */}
-
               {startDateTime && (
                 <div className="mt-2 text-sm text-gray-600">
                   <span className="font-semibold">Time Elapsed: </span>
@@ -227,8 +355,8 @@ export default function KombuchaCalculator() {
                 </div>
               )}
             </div>
-            
-            {/* ... (rest of the inputs for Temperature, Starter, Sugar are unchanged) ... */}
+
+            {/* Temperature */}
             <div className="bg-amber-50 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Thermometer className="w-5 h-5 text-amber-700" />
@@ -236,13 +364,43 @@ export default function KombuchaCalculator() {
                   Temperature (°C)
                 </label>
               </div>
-              <input type="range" min="15" max="35" value={temperature} onChange={(e) => setTemperature(Number(e.target.value))} className="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer" />
+              <input
+                type="range"
+                min="15"
+                max="35"
+                value={temperature}
+                onChange={(e) => setTemperature(Number(e.target.value))}
+                className="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer"
+              />
               <div className="flex justify-between text-sm text-gray-600 mt-1">
-                <span>15°C</span><span className="font-bold text-amber-700">{temperature}°C</span><span>35°C</span>
+                <span>15°C</span>
+                <span className="font-bold text-amber-700">{temperature}°C</span>
+                <span>35°C</span>
               </div>
             </div>
 
-            {/* Starter Percentage Input */}
+            {/* Sweet Tea Volume */}
+            <div className="bg-teal-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <FlaskConical className="w-5 h-5 text-teal-700" />
+                <label className="font-semibold text-gray-700">
+                  Sweet Tea Volume (mL)
+                </label>
+              </div>
+              <input
+                type="number"
+                min="0"
+                step="50"
+                value={sweetTeaVolume}
+                onChange={(e) => setSweetTeaVolume(Number(e.target.value))}
+                className="w-full px-4 py-2 border-2 border-teal-200 rounded-lg focus:outline-none focus:border-teal-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                The freshly brewed sweetened tea, before adding starter.
+              </p>
+            </div>
+
+            {/* Starter Volume */}
             <div className="bg-blue-50 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-5 h-5 text-blue-700" />
@@ -251,63 +409,86 @@ export default function KombuchaCalculator() {
                 </label>
               </div>
               <input
-                type="range"
-                min="5"
-                max="30"
-                value={starterPercent}
-                onChange={(e) => setStarterPercent(Number(e.target.value))}
-                className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                type="number"
+                min="0"
+                step="25"
+                value={starterVolume}
+                onChange={(e) => setStarterVolume(Number(e.target.value))}
+                className="w-full px-4 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500"
               />
-              <div className="flex justify-between text-sm text-gray-600 mt-1">
-                <span>5%</span>
-                <span className="font-bold text-blue-700">{starterPercent}%</span>
-                <span>30%</span>
-              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Mature kombucha from a previous batch ({starterPercentDisplay}% of total liquid).
+              </p>
             </div>
+
+            {/* Sugar */}
             <div className="bg-purple-50 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Droplet className="w-5 h-5 text-purple-700" />
-                <label className="font-semibold text-gray-700">
-                  Sugar (g)
-                </label>
+                <label className="font-semibold text-gray-700">Sugar (g)</label>
               </div>
               <input
-                type="range"
-                min="40"
-                max="120"
-                value={sugarPerLiter}
-                onChange={(e) => setSugarPerLiter(Number(e.target.value))}
-                className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer"
+                type="number"
+                min="0"
+                step="10"
+                value={sugarGrams}
+                onChange={(e) => setSugarGrams(Number(e.target.value))}
+                className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:border-purple-500"
               />
-              <div className="flex justify-between text-sm text-gray-600 mt-1">
-                <span>40 g/L</span>
-                <span className="font-bold text-purple-700">{sugarPerLiter} g/L</span>
-                <span>120 g/L</span>
-              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Total sugar dissolved in the sweet tea ({sugarDensityDisplay} g/L).
+              </p>
+            </div>
+
+            {/* Batch summary */}
+            <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-600 flex justify-between">
+              <span>
+                Total batch: <strong>{totalLiquidLiters} L</strong>
+              </span>
+              <span>
+                Starter: <strong>{starterPercentDisplay}%</strong>
+              </span>
+              <span>
+                Sugar density: <strong>{sugarDensityDisplay} g/L</strong>
+              </span>
             </div>
 
             {/* Results */}
             {startDateTime && (
               <div className="bg-gradient-to-r from-amber-100 to-orange-100 p-6 rounded-xl mt-8">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Fermentation Analysis</h2>
-                
-                <div className="space-y-4">
-                  {/* --- START OF CHANGE 5: Render the new projected finish display --- */}
-                  <div className="bg-white p-4 rounded-lg">
-                    <p className="text-sm text-gray-600">Projected Date & Time</p>
-                    <p className="text-2xl font-bold text-amber-700">{projectedFinishDisplay}</p>
-                  </div>
-                  {/* --- END OF CHANGE 5 --- */}
+                <h2 className="text-xl font-bold text-gray-800 mb-4">
+                  Fermentation Stage
+                </h2>
 
+                <div className="space-y-4">
+                  {/* Current stage headline */}
+                  <div
+                    className={`bg-white p-4 rounded-lg border-l-4 ${currentStage.borderColor}`}
+                  >
+                    <p className={`text-3xl font-bold ${currentStage.textColor}`}>
+                      {currentStage.label}
+                    </p>
+                    <p className="text-sm text-gray-700 mt-2">
+                      {currentStage.description}
+                    </p>
+                  </div>
+
+                  {/* Gradient bar with marker */}
                   <div className="bg-white p-4 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-sm text-gray-600">Progress</p>
-                      <p className="text-sm font-semibold text-gray-700">{getProgressLabel()}</p>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
+                    <p className="text-sm text-gray-600 mb-3">Flavor Spectrum</p>
+                    <div className="relative">
                       <div
-                        className={`h-4 rounded-full transition-all duration-500 ${getProgressColor()}`}
-                        style={{ width: `${Math.min(progress, 100)}%` }}
+                        className="w-full h-6 rounded-full"
+                        style={{
+                          background:
+                            'linear-gradient(to right, #fef08a 0%, #fbbf24 17%, #fb923c 37%, #ef4444 53%, #be123c 70%, #44403c 100%)',
+                        }}
+                      ></div>
+                      <div
+                        className="absolute top-0 h-6 w-1 bg-white border-2 border-gray-800 rounded-sm transition-all duration-500"
+                        style={{
+                          left: `calc(${markerPosition}% - 2px)`,
+                        }}
                       ></div>
                     </div>
                     <div className="flex justify-between mt-2 text-[10px] text-gray-500">
@@ -329,20 +510,40 @@ export default function KombuchaCalculator() {
                     </p>
                   </div>
 
-                  {progress >= 70 && progress < 100 && (
-                    <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
-                      <p className="text-sm text-yellow-800">Your kombucha is nearly ready! Consider tasting to check if it has reached your desired flavor balance.</p>
-                    </div>
-                  )}
-
-                  {progress >= 100 && (
-                    <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
-                      <p className="text-sm text-green-800">Your kombucha should be ready! Taste test and bottle when you're happy with the flavor.</p>
+                  {/* Upcoming stage transitions */}
+                  {stageProjections.length > 0 && (
+                    <div className="bg-white p-4 rounded-lg">
+                      <p className="text-sm text-gray-600 mb-2">
+                        Projected Transitions
+                      </p>
+                      <ul className="space-y-1 text-sm">
+                        {stageProjections.map(({ stage, date }) => {
+                          const isPast = date.getTime() < Date.now();
+                          return (
+                            <li
+                              key={stage.key}
+                              className={`flex justify-between ${
+                                isPast ? 'text-gray-400 line-through' : ''
+                              }`}
+                            >
+                              <span
+                                className={`font-semibold ${
+                                  isPast ? '' : stage.textColor
+                                }`}
+                              >
+                                → {stage.label}
+                              </span>
+                              <span>{formatProjectedDate(date)}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
                   )}
                 </div>
               </div>
             )}
+
             {!startDateTime && (
               <div className="bg-gray-50 border-2 border-dashed border-gray-300 p-8 rounded-xl text-center">
                 <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
