@@ -84,7 +84,7 @@ const getStage = (score: number): Stage => {
   return STAGES.find(s => score >= s.min && score < s.max) ?? STAGES[STAGES.length - 1];
 };
 
-const VISUAL_MAX_SCORE = 3.0;
+const VISUAL_MAX_SCORE = STAGES[STAGES.length - 1].min;
 
 // ============================================================
 // DATE FORMATTING (improved version from the other branch)
