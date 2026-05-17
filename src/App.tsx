@@ -489,23 +489,15 @@ export default function KombuchaCalculator() {
                         );
                       })}
                     </div>
-                    <p className="text-xs text-gray-500 mt-3 text-right">
-                      Score: {fermentationScore.toFixed(2)}
-                    </p>
-                  </div>
-
-                  {/* Peak balanced projection */}
-                  {peakBalancedDate && (
-                    <div className="bg-white p-4 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">
-                        Peak Balanced
-                      </p>
-                      <p className="text-sm font-semibold flex justify-between text-orange-800">
-                        <span>Ready to drink</span>
-                        <span>{formatProjectedDate(peakBalancedDate)}</span>
-                      </p>
+                    <div className="flex justify-between mt-3 text-xs text-gray-500">
+                      <span>Score: {fermentationScore.toFixed(2)}</span>
+                      {peakBalancedDate && (
+                        <span className="font-semibold text-orange-800">
+                          Peak Balanced: {formatProjectedDate(peakBalancedDate)}
+                        </span>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             )}
