@@ -481,7 +481,7 @@ export default function KombuchaCalculator() {
                             className={`absolute ${s.key === currentStage.key ? `font-bold ${s.textColor}` : ''}`}
                             style={{
                               left: `${left}%`,
-                              transform: (!isFirst && !isLast) ? 'translateX(-50%)' : 'none',
+                              transform: isFirst ? 'none' : 'translateX(-50%)',
                             }}
                           >
                             {s.label}
