@@ -469,19 +469,25 @@ export default function KombuchaCalculator() {
                         }}
                       ></div>
                     </div>
-                    <div className="flex justify-between mt-2 text-[10px] text-gray-500">
-                      {STAGES.map(s => (
-                        <span
-                          key={s.key}
-                          className={
-                            s.key === currentStage.key
-                              ? `font-bold ${s.textColor}`
-                              : ''
-                          }
-                        >
-                          {s.label}
-                        </span>
-                      ))}
+                    <div className="relative mt-2 text-[10px] text-gray-500 h-4">
+                      {STAGES.map((s, i) => {
+                        const isFirst = i === 0;
+                        const isLast = i === STAGES.length - 1;
+                        const peakScore = isFirst ? 0 : isLast ? s.min : (s.min + s.max) / 2;
+                        const left = (peakScore / VISUAL_MAX_SCORE) * 100;
+                        return (
+                          <span
+                            key={s.key}
+                            className={`absolute ${s.key === currentStage.key ? `font-bold ${s.textColor}` : ''}`}
+                            style={{
+                              left: `${left}%`,
+                              transform: (!isFirst && !isLast) ? 'translateX(-50%)' : 'none',
+                            }}
+                          >
+                            {s.label}
+                          </span>
+                        );
+                      })}
                     </div>
                     <p className="text-xs text-gray-500 mt-3 text-right">
                       Score: {fermentationScore.toFixed(2)}
