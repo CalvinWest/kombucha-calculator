@@ -162,9 +162,7 @@ export default function KombuchaCalculator() {
 
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [fermentationScore, setFermentationScore] = useState(0);
-  const [stageProjections, setStageProjections] = useState<
-    { stage: Stage; date: Date }[]
-  >([]);
+  const [peakBalancedDate, setPeakBalancedDate] = useState<Date | null>(null);
 
   // Persist inputs
   useEffect(() => {
@@ -223,19 +221,12 @@ export default function KombuchaCalculator() {
     if (startDateTime) {
       const start = new Date(startDateTime);
       if (!isNaN(start.getTime())) {
-        const projections = STAGES
-          .filter(s => s.min > 0 && s.min !== Infinity)
-          .map(stage => ({
-            stage,
-            date: new Date(
-              start.getTime() +
-                stage.min * adjustedReferenceTime * 24 * 60 * 60 * 1000
-            ),
-          }));
-        setStageProjections(projections);
+        setPeakBalancedDate(new Date(
+          start.getTime() + 0.85 * adjustedReferenceTime * 24 * 60 * 60 * 1000
+        ));
       }
     } else {
-      setStageProjections([]);
+      setPeakBalancedDate(null);
     }
   }, [
     temperature,
@@ -510,34 +501,20 @@ export default function KombuchaCalculator() {
                     </p>
                   </div>
 
-                  {/* Upcoming stage transitions */}
-                  {stageProjections.length > 0 && (
+                  {/* Peak balanced projection */}
+                  {peakBalancedDate && (
                     <div className="bg-white p-4 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-2">
-                        Projected Transitions
+                      <p className="text-sm text-gray-600 mb-1">
+                        Peak Balanced
                       </p>
-                      <ul className="space-y-1 text-sm">
-                        {stageProjections.map(({ stage, date }) => {
-                          const isPast = date.getTime() < Date.now();
-                          return (
-                            <li
-                              key={stage.key}
-                              className={`flex justify-between ${
-                                isPast ? 'text-gray-400 line-through' : ''
-                              }`}
-                            >
-                              <span
-                                className={`font-semibold ${
-                                  isPast ? '' : stage.textColor
-                                }`}
-                              >
-                                → {stage.label}
-                              </span>
-                              <span>{formatProjectedDate(date)}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <p className={`text-sm font-semibold flex justify-between ${
+                        peakBalancedDate.getTime() < Date.now()
+                          ? 'text-gray-400 line-through'
+                          : 'text-orange-800'
+                      }`}>
+                        <span>Ready to drink</span>
+                        <span>{formatProjectedDate(peakBalancedDate)}</span>
+                      </p>
                     </div>
                   )}
                 </div>
