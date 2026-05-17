@@ -131,6 +131,62 @@ const formatProjectedDate = (finishDate: Date): ReactNode => {
 };
 
 // ============================================================
+// TEMPERATURE FETCH
+// ============================================================
+
+async function fetchAverageTemp(
+  city: string,
+  startISO: string
+): Promise<{ temp: number; resolvedCity: string }> {
+  const geoRes = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
+  );
+  const geoData = await geoRes.json();
+  if (!geoData.results?.length) throw new Error(`City "${city}" not found`);
+  const { latitude, longitude, name, country } = geoData.results[0];
+
+  const start = new Date(startISO);
+  const now = new Date();
+  const startDateStr = start.toISOString().split('T')[0];
+  const todayStr = now.toISOString().split('T')[0];
+
+  const tempMap = new Map<string, number>();
+
+  // Archive API covers up to ~5 days ago
+  const archiveEnd = new Date(now);
+  archiveEnd.setDate(archiveEnd.getDate() - 5);
+  if (start < archiveEnd) {
+    const archiveEndStr = archiveEnd.toISOString().split('T')[0];
+    const archiveRes = await fetch(
+      `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${startDateStr}&end_date=${archiveEndStr}&daily=temperature_2m_mean&timezone=auto`
+    );
+    const archiveData = await archiveRes.json();
+    (archiveData.daily?.time ?? []).forEach((date: string, i: number) => {
+      const val = archiveData.daily.temperature_2m_mean[i];
+      if (val != null) tempMap.set(date, val);
+    });
+  }
+
+  // Forecast API fills the recent gap
+  const daysSinceStart = Math.max(1, Math.ceil((now.getTime() - start.getTime()) / 86400000));
+  const forecastRes = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_mean&timezone=auto&past_days=${Math.min(daysSinceStart, 92)}&forecast_days=1`
+  );
+  const forecastData = await forecastRes.json();
+  (forecastData.daily?.time ?? []).forEach((date: string, i: number) => {
+    if (date >= startDateStr && date <= todayStr) {
+      const val = forecastData.daily.temperature_2m_mean[i];
+      if (val != null && !tempMap.has(date)) tempMap.set(date, val);
+    }
+  });
+
+  if (tempMap.size === 0) throw new Error('No temperature data available');
+  const values = Array.from(tempMap.values());
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  return { temp: Math.round(avg), resolvedCity: `${name}, ${country}` };
+}
+
+// ============================================================
 // MAIN COMPONENT
 // ============================================================
 
@@ -155,6 +211,10 @@ export default function KombuchaCalculator() {
     return localStorage.getItem('kombuchaStartDate') || '';
   });
 
+  const [city, setCity] = useState(() => localStorage.getItem('kombuchaCity') || '');
+  const [tempStatus, setTempStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [tempStatusMsg, setTempStatusMsg] = useState('');
+
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [fermentationScore, setFermentationScore] = useState(0);
   const [peakBalancedDate, setPeakBalancedDate] = useState<Date | null>(null);
@@ -166,7 +226,8 @@ export default function KombuchaCalculator() {
     localStorage.setItem('kombuchaStarterVolume', String(starterVolume));
     localStorage.setItem('kombuchaSugarGrams', String(sugarGrams));
     localStorage.setItem('kombuchaStartDate', startDateTime);
-  }, [temperature, sweetTeaVolume, starterVolume, sugarGrams, startDateTime]);
+    localStorage.setItem('kombuchaCity', city);
+  }, [temperature, sweetTeaVolume, starterVolume, sugarGrams, startDateTime, city]);
 
   // Track elapsed time
   useEffect(() => {
@@ -247,6 +308,20 @@ export default function KombuchaCalculator() {
     const newDateTime = new Date(newDate);
     newDateTime.setHours(currentHour);
     setStartDateTime(newDateTime.toISOString());
+  };
+
+  const handleFetchTemp = async () => {
+    if (!city || !startDateTime) return;
+    setTempStatus('loading');
+    try {
+      const { temp, resolvedCity } = await fetchAverageTemp(city, startDateTime);
+      setTemperature(Math.min(35, Math.max(15, temp)));
+      setTempStatus('success');
+      setTempStatusMsg(`Avg for ${resolvedCity} since brew start: ${temp}°C`);
+    } catch (e) {
+      setTempStatus('error');
+      setTempStatusMsg(e instanceof Error ? e.message : 'Failed to fetch temperature');
+    }
   };
 
   const handleHourChange = (e: ChangeEvent<HTMLSelectElement>) => {
@@ -363,6 +438,28 @@ export default function KombuchaCalculator() {
                 <span className="font-bold text-amber-700">{temperature}°C</span>
                 <span>35°C</span>
               </div>
+              <div className="mt-3 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="City (e.g. Vancouver)"
+                  value={city}
+                  onChange={(e) => { setCity(e.target.value); setTempStatus('idle'); }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleFetchTemp()}
+                  className="flex-1 px-3 py-1.5 text-sm border-2 border-amber-200 rounded-lg focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  onClick={handleFetchTemp}
+                  disabled={!city || !startDateTime || tempStatus === 'loading'}
+                  className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {tempStatus === 'loading' ? '…' : 'Auto-fill'}
+                </button>
+              </div>
+              {(tempStatus === 'success' || tempStatus === 'error') && (
+                <p className={`text-xs mt-1.5 ${tempStatus === 'success' ? 'text-green-700' : 'text-red-600'}`}>
+                  {tempStatusMsg}
+                </p>
+              )}
             </div>
 
             {/* Sweet Tea Volume */}
