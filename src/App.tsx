@@ -112,11 +112,6 @@ const formatProjectedDate = (finishDate: Date): ReactNode => {
     });
   }
 
-  // Past dates
-  if (daysUntil < 0) {
-    return <span className="text-gray-500">already passed</span>;
-  }
-
   // Today & Tomorrow
   if (daysUntil === 0) return <>Later today</>;
   if (daysUntil === 1) return <>Tomorrow</>;
@@ -499,11 +494,7 @@ export default function KombuchaCalculator() {
                       <p className="text-sm text-gray-600 mb-1">
                         Peak Balanced
                       </p>
-                      <p className={`text-sm font-semibold flex justify-between ${
-                        peakBalancedDate.getTime() < Date.now()
-                          ? 'text-gray-400 line-through'
-                          : 'text-orange-800'
-                      }`}>
+                      <p className="text-sm font-semibold flex justify-between text-orange-800">
                         <span>Ready to drink</span>
                         <span>{formatProjectedDate(peakBalancedDate)}</span>
                       </p>
