@@ -447,12 +447,8 @@ export default function KombuchaCalculator() {
             {/* Results */}
             {startDateTime && (
               <div className="bg-gradient-to-r from-amber-100 to-orange-100 p-6 rounded-xl mt-8">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
-                  Fermentation Stage
-                </h2>
-
                 <div className="space-y-4">
-                  {/* Current stage headline */}
+                  {/* Current stage headline + gradient bar */}
                   <div
                     className={`bg-white p-4 rounded-lg border-l-4 ${currentStage.borderColor}`}
                   >
@@ -462,12 +458,8 @@ export default function KombuchaCalculator() {
                     <p className="text-sm text-gray-700 mt-2">
                       {currentStage.description}
                     </p>
-                  </div>
 
-                  {/* Gradient bar with marker */}
-                  <div className="bg-white p-4 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-3">Flavor Spectrum</p>
-                    <div className="relative">
+                    <div className="relative mt-4">
                       <div
                         className="w-full h-6 rounded-full"
                         style={{
