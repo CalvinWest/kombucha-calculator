@@ -103,8 +103,8 @@ const formatProjectedDate = (finishDate: Date): ReactNode => {
     (startOfFinishDate.getTime() - startOfToday.getTime()) /
     (1000 * 60 * 60 * 24);
 
-  // If the finish date is far in the future, show the full date
-  if (daysUntil > 12) {
+  // Past dates or far future — show the full date
+  if (finishDate.getTime() < now.getTime() || daysUntil > 12) {
     return finishDate.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
