@@ -264,7 +264,7 @@ export default function KombuchaCalculator() {
     // under reference conditions (24°C, 10% starter, 70 g/L).
     const referenceTime = 8;
 
-    const tempFactor = Math.pow(24 / temperature, 1.8);
+    const tempFactor = Math.pow(2, (24 - temperature) / 10);
     const starterFactor = Math.pow(10 / Math.max(starterPercent, 0.1), 0.4);
     const sugarFactor = Math.pow(Math.max(sugarPerLiter, 0.1) / 70, 0.3);
 
