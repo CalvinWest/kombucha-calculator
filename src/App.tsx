@@ -360,6 +360,15 @@ export default function KombuchaCalculator() {
       ? (sugarGrams / (sweetTeaVolume / 1000)).toFixed(0)
       : '0';
 
+  const showPeakSubdate = (() => {
+    if (!peakBalancedDate) return false;
+    const now = new Date();
+    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+    const startOfPeak = new Date(peakBalancedDate); startOfPeak.setHours(0, 0, 0, 0);
+    const daysUntil = (startOfPeak.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24);
+    return peakBalancedDate.getTime() >= now.getTime() && daysUntil <= 12;
+  })();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-6">
       <div className="max-w-2xl mx-auto">
@@ -586,12 +595,19 @@ export default function KombuchaCalculator() {
                         );
                       })}
                     </div>
-                    <div className="flex justify-between mt-3 text-xs text-gray-500">
+                    <div className="flex justify-between mt-3 text-xs text-gray-500 items-start">
                       <span>Score: {fermentationScore.toFixed(2)}</span>
                       {peakBalancedDate && (
-                        <span className="font-semibold text-orange-800">
-                          Peak Balanced: {formatProjectedDate(peakBalancedDate)}
-                        </span>
+                        <div className="text-right">
+                          <div className="font-semibold text-orange-800">
+                            Peak Balanced: {formatProjectedDate(peakBalancedDate)}
+                          </div>
+                          {showPeakSubdate && (
+                            <div className="text-gray-400 mt-0.5">
+                              {peakBalancedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
