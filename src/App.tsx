@@ -90,6 +90,15 @@ const VISUAL_MAX_SCORE = STAGES[STAGES.length - 1].min;
 // DATE FORMATTING (improved version from the other branch)
 // ============================================================
 
+// "YYYY-MM-DD" from local date parts (toISOString would give the UTC date,
+// which can be a day off from the user's calendar)
+const toLocalDateString = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 const formatProjectedDate = (finishDate: Date): ReactNode => {
   const now = new Date();
 
@@ -99,9 +108,11 @@ const formatProjectedDate = (finishDate: Date): ReactNode => {
   const startOfFinishDate = new Date(finishDate);
   startOfFinishDate.setHours(0, 0, 0, 0);
 
-  const daysUntil =
+  // Round so a DST shift inside the window can't break the === 0 / === 1 checks
+  const daysUntil = Math.round(
     (startOfFinishDate.getTime() - startOfToday.getTime()) /
-    (1000 * 60 * 60 * 24);
+      (1000 * 60 * 60 * 24)
+  );
 
   // Past dates or far future — show the full date
   if (finishDate.getTime() < now.getTime() || daysUntil > 12) {
@@ -147,8 +158,10 @@ async function fetchAverageTemp(
 
   const start = new Date(startISO);
   const now = new Date();
-  const startDateStr = start.toISOString().split('T')[0];
-  const todayStr = now.toISOString().split('T')[0];
+  // The weather APIs are queried with timezone=auto (location-local dates),
+  // so send local calendar dates rather than UTC ones
+  const startDateStr = toLocalDateString(start);
+  const todayStr = toLocalDateString(now);
 
   const tempMap = new Map<string, number>();
 
@@ -156,7 +169,7 @@ async function fetchAverageTemp(
   const archiveEnd = new Date(now);
   archiveEnd.setDate(archiveEnd.getDate() - 5);
   if (start < archiveEnd) {
-    const archiveEndStr = archiveEnd.toISOString().split('T')[0];
+    const archiveEndStr = toLocalDateString(archiveEnd);
     const archiveRes = await fetch(
       `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${startDateStr}&end_date=${archiveEndStr}&daily=temperature_2m_mean&timezone=auto`
     );
@@ -305,8 +318,10 @@ export default function KombuchaCalculator() {
     const currentHour = startDateTime
       ? new Date(startDateTime).getHours()
       : new Date().getHours();
-    const newDateTime = new Date(newDate);
-    newDateTime.setHours(currentHour);
+    // Parse the "YYYY-MM-DD" input as a local date — new Date(string) would
+    // treat it as UTC midnight and land on the wrong local day
+    const [year, month, day] = newDate.split('-').map(Number);
+    const newDateTime = new Date(year, month - 1, day, currentHour);
     setStartDateTime(newDateTime.toISOString());
   };
 
@@ -332,7 +347,9 @@ export default function KombuchaCalculator() {
     setStartDateTime(newDateTime.toISOString());
   };
 
-  const startDateValue = startDateTime ? startDateTime.split('T')[0] : '';
+  const startDateValue = startDateTime
+    ? toLocalDateString(new Date(startDateTime))
+    : '';
   const startHourValue = startDateTime
     ? new Date(startDateTime).getHours()
     : -1;
